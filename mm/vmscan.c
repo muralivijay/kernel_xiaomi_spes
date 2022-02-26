@@ -4497,6 +4497,9 @@ retry:
 	if (type == LRU_GEN_ANON && swapped)
 		*swapped = true;
 
+	if (type == LRU_GEN_ANON && swapped)
+		*swapped = true;
+
 	return scanned;
 }
 
@@ -4552,6 +4555,7 @@ static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc
 	long scanned = 0;
 	bool need_aging = false;
 	bool swapped = false;
+	unsigned long reclaimed = sc->nr_reclaimed;
 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 
 	lru_add_drain();
@@ -4584,9 +4588,15 @@ static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc
 		if (sc->memcgs_avoid_swapping && swappiness < 200 && swapped)
 			break;
 
-		scanned += delta;
-		if (scanned >= nr_to_scan)
+		if (sc->memcgs_avoid_swapping && swappiness < 200 && swapped)
 			break;
+
+		scanned += delta;
+		if (scanned >= nr_to_scan) {
+			if (!swapped && sc->nr_reclaimed - reclaimed >= MIN_LRU_BATCH)
+				sc->memcgs_need_swapping = false;
+			break;
+		}
 
 		cond_resched();
 	}
