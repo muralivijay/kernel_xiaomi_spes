@@ -245,7 +245,7 @@ void *lru_gen_eviction(struct page *page)
 	lruvec = mem_cgroup_lruvec(pgdat, memcg);
 	lrugen = &lruvec->lrugen;
 
-	mod_lruvec_state(lruvec, WORKINGSET_REFAULT_BASE + type, delta);
+	mod_lruvec_state(lruvec, WORKINGSET_REFAULT + type, delta);
 
 	min_seq = READ_ONCE(lrugen->min_seq[type]);
 	token = (min_seq << LRU_REFS_WIDTH) | refs;
