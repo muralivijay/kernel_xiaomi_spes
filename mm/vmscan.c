@@ -2657,8 +2657,11 @@ static int get_swappiness(struct lruvec *lruvec, struct scan_control *sc)
 {
 	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
 
-	if (mem_cgroup_get_nr_swap_pages(memcg) <= 0)
-		return 0;
+	if (mem_cgroup_get_nr_swap_pages(memcg) <= 0) {
+		count_vm_event(current_is_kswapd() ? LRU_KSWAPD_SWAP_FULL:
+						     LRU_DIRECT_SWAP_FULL);
+ 		return 0;
+	}
 
 	return mem_cgroup_swappiness(memcg);
 }
@@ -4184,8 +4187,13 @@ static bool isolate_page(struct lruvec *lruvec, struct page *page, struct scan_c
 		return false;
 
 	if (!(sc->may_writepage && (sc->gfp_mask & __GFP_IO)) &&
-	    (PageDirty(page) || (PageAnon(page) && !PageSwapCache(page))))
+	    (PageDirty(page) || (PageAnon(page) && !PageSwapCache(page)))) {
+		if (!sc->may_writepage)
+			__count_vm_event(LRU_NO_WRITEPAGE);
+		if (!(sc->gfp_mask & __GFP_IO))
+			__count_vm_event(LRU_NO_GFP_IO);
 		return false;
+	}
 
 	if (!get_page_unless_zero(page))
 		return false;
@@ -4459,6 +4467,10 @@ retry:
 	if (!list_empty(&list)) {
 		skip_retry = true;
 		goto retry;
+
+	if (!reclaimed) {
+		item = current_is_kswapd() ? LRU_KSWAPD_ANON : LRU_DIRECT_ANON;
+		count_vm_event(item + type);
 	}
 
 	if (type == LRU_GEN_ANON && swapped)
@@ -4503,6 +4515,10 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool 
 	if (current_is_kswapd())
 		return 0;
 
+	/* try other memcgs before going to the aging path */
+	if (sc->priority == DEF_PRIORITY)
+		return 0;
+
 	if (try_to_inc_max_seq(lruvec, max_seq, sc, can_swap, false))
 		return nr_to_scan;
 done:
@@ -4515,7 +4531,6 @@ static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc
 	long scanned = 0;
 	bool need_aging = false;
 	bool swapped = false;
-	unsigned long reclaimed = sc->nr_reclaimed;
 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 
 	lru_add_drain();
@@ -6480,8 +6495,11 @@ restart:
 			sc.priority--;
 	} while (sc.priority >= 1);
 
-	if (!sc.nr_reclaimed)
-		pgdat->kswapd_failures++;
+	if (!sc.nr_reclaimed) {
+		count_vm_event(LRU_KSWAPD_NO_PROGRESS);
+		if (!lru_gen_enabled())
+			pgdat->kswapd_failures++;
+	}
 
 out:
 	/* If reclaim was boosted, account for the reclaim done in this pass */
