@@ -1078,23 +1078,25 @@ static const struct fsnotify_ops fsnotify_ops = {
 };
 
 static int add_mark_on_inode(struct inode *inode, u32 mask,
-								struct fsnotify_mark **out)
+                             struct fsnotify_mark **out)
 {
-	struct fsnotify_mark *m;
+    struct fsnotify_mark *m;
 
-	m = kzalloc(sizeof(*m), GFP_KERNEL);
-	if (!m)
-		return -ENOMEM;
+    m = kzalloc(sizeof(*m), GFP_KERNEL);
+    if (!m)
+        return -ENOMEM;
 
-	fsnotify_init_mark(m, g);
-	m->mask = mask;
+    fsnotify_init_mark(m, g);
+    m->mask = mask;
 
-	if (fsnotify_add_mark(m, inode, NULL, 0)) {
-		fsnotify_put_mark(m);
-		return -EINVAL;
-	}
-	*out = m;
-	return 0;
+    if (fsnotify_add_mark(m, &inode->i_fsnotify_marks,
+                          FSNOTIFY_OBJ_TYPE_INODE, 0)) {
+        fsnotify_put_mark(m);
+        return -EINVAL;
+    }
+
+    *out = m;
+    return 0;
 }
 
 static int susfs_sdcard_monitor_fn(void *data)
