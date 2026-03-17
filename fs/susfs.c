@@ -1052,24 +1052,25 @@ static int watch_one_dir(struct watch_dir *wd)
  * Cleanup is deferred to a delayed_work that runs outside the SRCU context.
  */
 static int susfs_handle_sdcard_inode_event(struct fsnotify_group *group,
-											struct inode *to_tell,
-											struct fsnotify_mark *inode_mark,
-											struct fsnotify_mark *vfsmount_mark,
-											u32 mask, const void *data, int data_type,
-											const unsigned char *file_name, u32 cookie,
-											struct fsnotify_iter_info *iter_info)
+                                           struct inode *inode,
+                                           u32 mask,
+                                           const void *data,
+                                           int data_type,
+                                           const unsigned char *file_name,
+                                           u32 cookie,
+                                           struct fsnotify_iter_info *iter_info)
 {
-	if (!file_name || strlen(file_name) != 7 ||
-	    memcmp(file_name, "Android", 7))
-		return 0;
+    if (!file_name || strlen(file_name) != 7 ||
+        memcmp(file_name, "Android", 7))
+        return 0;
 
-	if (test_and_set_bit(0, &sdcard_cleanup_scheduled))
-		return 0;
+    if (test_and_set_bit(0, &sdcard_cleanup_scheduled))
+        return 0;
 
-	SUSFS_LOGI("'%s' detected, mask: 0x%x\n", SDCARD_ANDROID_PATH, mask);
-	SUSFS_LOGI("deferring cleanup for 5 seconds\n");
-	queue_delayed_work(system_unbound_wq, &sdcard_cleanup_dwork, 5 * HZ);
-	return 0;
+    SUSFS_LOGI("'%s' detected, mask: 0x%x\n", SDCARD_ANDROID_DATA_PATH, mask);
+    SUSFS_LOGI("deferring cleanup for 5 seconds\n");
+    queue_delayed_work(system_unbound_wq, &sdcard_cleanup_dwork, 5 * HZ);
+    return 0;
 }
 
 static const struct fsnotify_ops fsnotify_ops = {
