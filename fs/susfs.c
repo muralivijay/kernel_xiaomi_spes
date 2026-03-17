@@ -969,7 +969,7 @@ out_copy_to_user:
 
 /* kthread for checking if /sdcard/Android is accessible via fsnoitfy */
 /* code is straightly borrowed from KernelSU's pkg_observer.c */
-#define SDCARD_ANDROID_PATH "/data/media/0/Android"
+#define SDCARD_ANDROID_DATA_PATH "/data/media/0/Android"
 extern void setup_selinux(const char *domain, struct cred *cred);
 extern bool susfs_is_current_ksu_domain(void);
 bool susfs_is_sdcard_android_data_decrypted __read_mostly = false;
@@ -1116,7 +1116,7 @@ static int susfs_sdcard_monitor_fn(void *data)
 	}
 
 	SUSFS_LOGI("start monitoring path '%s' using fsnotify\n",
-				SDCARD_ANDROID_PATH);
+				SDCARD_ANDROID_DATA_PATH);
 
 	INIT_DELAYED_WORK(&sdcard_cleanup_dwork, susfs_sdcard_cleanup_fn);
 
