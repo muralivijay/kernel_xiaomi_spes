@@ -5134,8 +5134,9 @@ static unsigned long mem_cgroup_count_precharge(struct mm_struct *mm)
 	unsigned long precharge;
 
 	mmap_read_lock(mm);
-	walk_page_range(0, mm->highest_vm_end,
-			&mem_cgroup_count_precharge_walk);
+	walk_page_range(mm, 0, mm->highest_vm_end,
+			&precharge_walk_ops,
+			NULL);
 	mmap_read_unlock(mm);
 
 	precharge = mc.precharge;
