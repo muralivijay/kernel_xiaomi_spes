@@ -50,6 +50,7 @@
 #include <linux/printk.h>
 #include <linux/dax.h>
 #include <linux/psi.h>
+#include <linux/pagewalk.h>
 #include <linux/pagevec.h>
 #include <linux/shmem_fs.h>
 #include <linux/ctype.h>
@@ -1199,7 +1200,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			goto keep_locked;
 
 		/* page_update_gen() tried to promote this page? */
-		if (lru_gen_enabled() && !force_reclaim &&
+		if (lru_gen_enabled() && !ignore_references &&
 		    page_mapped(page) && PageReferenced(page))
 			goto keep_locked;
 
@@ -3608,50 +3609,45 @@ done:
 
 static void walk_mm(struct lruvec *lruvec, struct mm_struct *mm, struct lru_gen_mm_walk *walk)
 {
-	int err;
-	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
-	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
-	struct mm_walk args = {
-		.mm = mm,
-		.private = walk,
+	static const struct mm_walk_ops mm_walk_ops = {
 		.test_walk = should_skip_vma,
 		.p4d_entry = walk_pud_range,
 	};
+
+	int err;
+	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
+	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 
 	walk->next_addr = FIRST_USER_ADDRESS;
 
 	do {
 		DEFINE_MAX_SEQ(lruvec);
+
 		err = -EBUSY;
 
 		/* another thread might have called inc_max_seq() */
- 		if (walk->max_seq != max_seq)
- 			break;
+		if (walk->max_seq != max_seq)
+			break;
 
 		/* page_update_gen() requires stable page_memcg() */
 		if (!mem_cgroup_trylock_pages(memcg))
 			break;
 
 		/* the caller might be holding the lock for write */
-		if (down_read_trylock(&mm->mmap_sem)) {
-			unsigned long start = walk->next_addr;
-			unsigned long end = mm->highest_vm_end;
+		if (mmap_read_trylock(mm)) {
+			err = walk_page_range(mm, walk->next_addr, ULONG_MAX, &mm_walk_ops, walk);
+			mmap_read_unlock(mm);
+		}
 
-			err = walk_page_range(start, end, &args);
-
-			up_read(&mm->mmap_sem);
-
-			if (walk->batched) {
-				spin_lock_irq(&pgdat->lru_lock);
-				reset_batch_size(lruvec, walk);
-				spin_unlock_irq(&pgdat->lru_lock);
-			}
+		mem_cgroup_unlock_pages();
+		if (walk->batched) {
+			spin_lock_irq(&pgdat->lru_lock);
+			reset_batch_size(lruvec, walk);
+			spin_unlock_irq(&pgdat->lru_lock);
 		}
 
 		cond_resched();
-		mem_cgroup_unlock_pages();
-
-	} while (err == -EAGAIN && walk->next_addr && !mm_is_oom_victim(mm));
+	} while (err == -EAGAIN);
 }
 
 static struct lru_gen_mm_walk *alloc_mm_walk(void)
