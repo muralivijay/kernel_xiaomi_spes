@@ -1422,7 +1422,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
  	* Keep normal charger-mode state (0); the 0x8B write itself
  	* is the required trigger.
  	*/
-	ret = fts_ex_mode_switch(MODE_CHARGER, DISABLE);
+	ret = fts_write_reg(FTS_REG_CHARGER_MODE_EN, DISABLE);
 	if (ret < 0)
         	FTS_ERROR("failed to rearm FT3418 scan mode: %d", ret);
 
