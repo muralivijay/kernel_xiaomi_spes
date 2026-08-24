@@ -1417,6 +1417,15 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
         INIT_WORK(&ts_data->suspend_work, fts_suspend_work);
     }
 
+	/*
+ 	* Start scanning on replacement FT3418 panels.
+ 	* Keep normal charger-mode state (0); the 0x8B write itself
+ 	* is the required trigger.
+ 	*/
+	ret = fts_ex_mode_switch(MODE_CHARGER, DISABLE);
+	if (ret < 0)
+        	FTS_ERROR("failed to rearm FT3418 scan mode: %d", ret);
+
 #if defined(CONFIG_PM) && FTS_PATCH_COMERR_PM
     init_completion(&ts_data->pm_completion);
     ts_data->pm_suspend = false;
