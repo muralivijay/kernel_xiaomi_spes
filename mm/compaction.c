@@ -604,6 +604,10 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 			/* Recheck this is a buddy page under lock */
 			if (!PageBuddy(page))
 				goto isolate_fail;
+		} else {
+			/* EVEN IF ALREADY LOCKED: Re-verify PageBuddy under lock state */
+			if (!PageBuddy(page))
+				goto isolate_fail;
 		}
 
 		/* Found a free page, will break it into order-0 pages */

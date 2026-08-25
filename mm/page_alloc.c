@@ -3125,7 +3125,8 @@ int __isolate_free_page(struct page *page, unsigned int order)
 	struct zone *zone;
 	int mt;
 
-	BUG_ON(!PageBuddy(page));
+       if (unlikely(!PageBuddy(page)))
+           return 0;
 
 	zone = page_zone(page);
 	mt = get_pageblock_migratetype(page);
