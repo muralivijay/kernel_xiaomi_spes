@@ -3125,8 +3125,19 @@ int __isolate_free_page(struct page *page, unsigned int order)
 	struct zone *zone;
 	int mt;
 
+       /* 1. Abort if page is not a valid buddy page */
        if (unlikely(!PageBuddy(page)))
            return 0;
+
+       /* 2. CRITICAL FIX: Intercept poisoned LRU pointers from XArray races */
+	if (unlikely((unsigned long)page->lru.next == LIST_POISON1 ||
+		     (unsigned long)page->lru.prev == LIST_POISON2 ||
+		     list_empty(&page->lru)))
+		return 0;
+
+	/* 3. Verify page order matches */
+	if (unlikely(page_order(page) != order))
+		return 0;
 
 	zone = page_zone(page);
 	mt = get_pageblock_migratetype(page);
@@ -3144,6 +3155,10 @@ int __isolate_free_page(struct page *page, unsigned int order)
 
 		__mod_zone_freepage_state(zone, -(1UL << order), mt);
 	}
+
+      /* 4. Double check Buddy status right before unlinking */
+	if (unlikely(!PageBuddy(page)))
+		return 0;
 
 	/* Remove page from free list */
 	list_del(&page->lru);
