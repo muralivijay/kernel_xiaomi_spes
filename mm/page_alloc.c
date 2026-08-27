@@ -2220,7 +2220,22 @@ static int move_freepages(struct zone *zone,
 			continue;
 		}
 
+                 /* CRITICAL FIX: Guard against poisoned LRU pointers */
+		if (unlikely((unsigned long)page->lru.next == LIST_POISON1 ||
+			     (unsigned long)page->lru.prev == LIST_POISON2 ||
+			     list_empty(&page->lru))) {
+			page++;
+			continue;
+		}
+
 		order = page_order(page);
+
+                /* Sanity check on order bounds before bit-shifting */
+		if (unlikely(order >= MAX_ORDER)) {
+			page++;
+			continue;
+		}
+
 		list_move(&page->lru,
 			  &zone->free_area[order].free_list[migratetype]);
 		page += 1 << order;
