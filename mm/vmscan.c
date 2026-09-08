@@ -1200,7 +1200,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			goto keep_locked;
 
 		/* page_update_gen() tried to promote this page? */
-		if (lru_gen_enabled() && !ignore_references &&
+		if (lru_gen_enabled() && !force_reclaim &&
 		    page_mapped(page) && PageReferenced(page))
 			goto keep_locked;
 
@@ -2973,7 +2973,7 @@ static bool iterate_mm_list(struct lruvec *lruvec, struct lru_gen_mm_walk *walk,
 	if (!mm_state->head)
  		mm_state->head = &mm_list->fifo;
 
-		if (mm_state->head == &mm_list->fifo)
+	if (mm_state->head == &mm_list->fifo)
 		first = true;
 
 	do {
@@ -3634,20 +3634,23 @@ static void walk_mm(struct lruvec *lruvec, struct mm_struct *mm, struct lru_gen_
 			break;
 
 		/* the caller might be holding the lock for write */
-		if (mmap_read_trylock(mm)) {
-			err = walk_page_range(mm, walk->next_addr, ULONG_MAX, &mm_walk_ops, walk);
-			mmap_read_unlock(mm);
-		}
+		if (down_read_trylock(&mm->mmap_lock)) {
+			unsigned long start = walk->next_addr;
+			unsigned long end = mm->highest_vm_end;
 
-		mem_cgroup_unlock_pages();
-		if (walk->batched) {
-			spin_lock_irq(&pgdat->lru_lock);
-			reset_batch_size(lruvec, walk);
-			spin_unlock_irq(&pgdat->lru_lock);
+			err = walk_page_range(mm, start, end, &mm_walk_ops, walk);
+			up_read(&mm->mmap_lock);
+
+			if (walk->batched) {
+				spin_lock_irq(&pgdat->lru_lock);
+				reset_batch_size(lruvec, walk);
+				spin_unlock_irq(&pgdat->lru_lock);
+			}
 		}
 
 		cond_resched();
-	} while (err == -EAGAIN);
+		mem_cgroup_unlock_pages();
+	} while (err == -EAGAIN && walk->next_addr && !mm_is_oom_victim(mm));
 }
 
 static struct lru_gen_mm_walk *alloc_mm_walk(void)
