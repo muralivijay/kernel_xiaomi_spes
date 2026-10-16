@@ -305,8 +305,10 @@ void lru_gen_refault(struct page *page, void *shadow)
 	 * 2. For pages accessed through file descriptors, numbers of accesses
 	 *    might have been beyond the limit.
 	 */
-	if (lru_gen_in_fault() || refs + workingset == BIT(LRU_REFS_WIDTH)) {
-		SetPageWorkingset(page);
+	if (lru_gen_in_fault() ||
+	    refs + workingset >= BIT(LRU_REFS_WIDTH) - 1) {
+		set_mask_bits(&page->flags, 0,
+			      LRU_REFS_MASK | BIT(PG_workingset));
 		mod_lruvec_state(lruvec, WORKINGSET_RESTORE, delta);
 	}
 unlock:
