@@ -245,8 +245,6 @@ void *lru_gen_eviction(struct page *page)
 	lruvec = mem_cgroup_lruvec(pgdat, memcg);
 	lrugen = &lruvec->lrugen;
 
-	mod_lruvec_state(lruvec, WORKINGSET_REFAULT + type, delta);
-
 	min_seq = READ_ONCE(lrugen->min_seq[type]);
 	token = (min_seq << LRU_REFS_WIDTH) | refs;
 
@@ -273,10 +271,6 @@ void lru_gen_refault(struct page *page, void *shadow)
 
 	unpack_shadow(shadow, &memcg_id, &pgdat, &token, &workingset);
 
-	refs = token & (BIT(LRU_REFS_WIDTH) - 1);
-	if (refs && !workingset)
-		return;
-
 	if (page_pgdat(page) != pgdat)
 		return;
 
@@ -285,8 +279,15 @@ void lru_gen_refault(struct page *page, void *shadow)
 	if (!mem_cgroup_disabled() && !memcg)
 		goto unlock;
 
+	refs = token & (BIT(LRU_REFS_WIDTH) - 1);
 	token >>= LRU_REFS_WIDTH;
+
 	lruvec = mem_cgroup_lruvec(pgdat, memcg);
+	mod_lruvec_state(lruvec, WORKINGSET_REFAULT, delta);
+
+	if (refs && !workingset)
+		goto unlock;
+
 	lrugen = &lruvec->lrugen;
 	min_seq = READ_ONCE(lrugen->min_seq[type]);
 	if (token != (min_seq & (EVICTION_MASK >> LRU_REFS_WIDTH)))
