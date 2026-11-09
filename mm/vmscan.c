@@ -4487,6 +4487,7 @@ retry:
 	if (!list_empty(&list)) {
 		skip_retry = true;
 		goto retry;
+	}	
 
 	if (!reclaimed) {
 		item = current_is_kswapd() ? LRU_KSWAPD_ANON : LRU_DIRECT_ANON;
