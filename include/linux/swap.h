@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/atomic.h>
 #include <linux/page-flags.h>
+#include <linux/xarray.h>
 #include <asm/page.h>
 
 struct notifier_block;
@@ -235,6 +236,10 @@ struct swap_cluster_list {
  */
 struct swap_info_struct {
 	unsigned long	flags;		/* SWP_USED etc: see above */
+#ifdef CONFIG_LRU_GEN
+	/* Eviction tokens retained until the 4.19 swapin charge is committed. */
+	struct xarray lru_gen_shadow;
+#endif
 	signed short	prio;		/* swap priority of this type */
 	struct plist_node list;		/* entry in swap_active_head */
 	signed char	type;		/* strange name for an index */
@@ -290,6 +295,30 @@ struct swap_info_struct {
 					   * plist_for_each_* can work.
 					   */
 };
+
+#if defined(CONFIG_LRU_GEN) && defined(CONFIG_SWAP)
+void lru_gen_store_swap_shadow(swp_entry_t entry, void *shadow,
+			       unsigned int nr_pages);
+void *lru_gen_take_swap_shadow(swp_entry_t entry);
+void lru_gen_clear_swap_shadows(struct swap_info_struct *si,
+			       unsigned long offset, unsigned int nr_entries);
+#else
+static inline void lru_gen_store_swap_shadow(swp_entry_t entry, void *shadow,
+					     unsigned int nr_pages)
+{
+}
+
+static inline void *lru_gen_take_swap_shadow(swp_entry_t entry)
+{
+	return NULL;
+}
+
+static inline void lru_gen_clear_swap_shadows(struct swap_info_struct *si,
+					   unsigned long offset,
+					   unsigned int nr_entries)
+{
+}
+#endif
 
 #ifdef CONFIG_64BIT
 #define SWAP_RA_ORDER_CEILING	5

@@ -24,10 +24,10 @@ following subsections.
 
 Kill switch
 -----------
-``enable`` accepts different values to enable or disable the following
+``enabled`` accepts different values to enable or disable the following
 components. Its default value depends on ``CONFIG_LRU_GEN_ENABLED``.
 All the components should be enabled unless some of them have
-unforeseen side effects. Writing to ``enable`` has no effect when a
+unforeseen side effects. Writing to ``enabled`` has no effect when a
 component is not supported by the hardware, and valid values will be
 accepted even when the main switch is off.
 
@@ -117,10 +117,10 @@ pages, since ``age_in_ms`` of the former is the largest and that of
 the latter is the smallest.
 
 Users can write ``+ memcg_id node_id max_gen_nr
-[can_swap[full_scan]]`` to ``lru_gen`` to create a new generation
+[can_swap[force_scan]]`` to ``lru_gen`` to create a new generation
 ``max_gen_nr+1``. ``can_swap`` defaults to the swap setting and, if it
 is set to ``1``, it forces the scan of anon pages when swap is off.
-``full_scan`` defaults to ``1`` and, if it is set to ``0``, it reduces
+``force_scan`` defaults to ``1`` and, if it is set to ``0``, it reduces
 the overhead as well as the coverage when scanning page tables.
 
 A typical use case is that a job scheduler writes to ``lru_gen`` at a

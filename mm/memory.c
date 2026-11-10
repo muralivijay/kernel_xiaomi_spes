@@ -2860,15 +2860,11 @@ static void lru_gen_exit_fault(void)
 static void lru_gen_swap_refault(struct page *page, swp_entry_t entry)
 {
 	void *item;
-	struct address_space *mapping = swap_address_space(entry);
-	pgoff_t index = swp_offset(entry);
 
 	if (!lru_gen_enabled())
 		return;
 
-	rcu_read_lock();
-	item = xa_load(&mapping->i_pages, index);
-	rcu_read_unlock();
+	item = lru_gen_take_swap_shadow(entry);
 	if (xa_is_value(item))
 		lru_gen_refault(page, item);
 }
@@ -2958,7 +2954,6 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 				__SetPageLocked(page);
 				__SetPageSwapBacked(page);
 				set_page_private(page, entry.val);
-				lru_gen_swap_refault(page, entry);
 				lru_cache_add_anon(page);
 				swap_readpage(page, true);
 			}
@@ -3077,6 +3072,8 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 			activate_page(page);
 	}
 
+	/* The page now has its final memcg and the PTE still pins the slot. */
+	lru_gen_swap_refault(page, entry);
 	swap_free(entry);
 	if (mem_cgroup_swap_full(page) ||
 	    (vmf->vma_flags & VM_LOCKED) || PageMlocked(page))
