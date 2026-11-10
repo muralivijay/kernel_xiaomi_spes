@@ -668,6 +668,9 @@ static void swap_range_free(struct swap_info_struct *si, unsigned long offset,
 	unsigned long end = offset + nr_entries - 1;
 	void (*swap_slot_free_notify)(struct block_device *, unsigned long);
 
+	/* Drop old tokens before the slots can be allocated to new pages. */
+	lru_gen_clear_swap_shadows(si, offset, nr_entries);
+
 	if (offset < si->lowest_bit)
 		si->lowest_bit = offset;
 	if (end > si->highest_bit) {
@@ -2640,6 +2643,9 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 
 	flush_work(&p->discard_work);
 
+#ifdef CONFIG_LRU_GEN
+	xa_destroy(&p->lru_gen_shadow);
+#endif
 	destroy_swap_extents(p);
 	if (p->flags & SWP_CONTINUED)
 		free_swap_count_continuations(p);
@@ -2898,6 +2904,9 @@ static struct swap_info_struct *alloc_swap_info(void)
 	kvfree(defer);
 	spin_lock_init(&p->lock);
 	spin_lock_init(&p->cont_lock);
+#ifdef CONFIG_LRU_GEN
+	xa_init(&p->lru_gen_shadow);
+#endif
 
 	return p;
 }

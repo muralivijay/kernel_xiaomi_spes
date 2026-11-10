@@ -108,6 +108,58 @@ void show_swap_cache_info(void)
 	printk("Total swap = %lukB\n", total_swap_pages << (PAGE_SHIFT - 10));
 }
 
+#ifdef CONFIG_LRU_GEN
+/*
+ * Unlike 6.6, this baseline commits swapin charges in do_swap_page(), after
+ * swapcache insertion and readahead. Keep tokens separate from cached pages
+ * so they can be consumed after charging, without changing memcg accounting.
+ * The swap slot reference held by each caller pins the swap area and token.
+ */
+void lru_gen_store_swap_shadow(swp_entry_t entry, void *shadow,
+			       unsigned int nr_pages)
+{
+	struct xarray *xa = &swp_swap_info(entry)->lru_gen_shadow;
+	unsigned long flags;
+	unsigned long offset = swp_offset(entry);
+	unsigned int i;
+
+	xa_lock_irqsave(xa, flags);
+	/* Refault feedback is best effort; never recurse into reclaim here. */
+	for (i = 0; i < nr_pages; i++)
+		__xa_store(xa, offset + i, shadow, GFP_NOWAIT | __GFP_NOWARN);
+	xa_unlock_irqrestore(xa, flags);
+}
+
+void *lru_gen_take_swap_shadow(swp_entry_t entry)
+{
+	struct xarray *xa = &swp_swap_info(entry)->lru_gen_shadow;
+	unsigned long flags;
+	void *shadow;
+
+	xa_lock_irqsave(xa, flags);
+	shadow = __xa_erase(xa, swp_offset(entry));
+	xa_unlock_irqrestore(xa, flags);
+
+	return shadow;
+}
+
+void lru_gen_clear_swap_shadows(struct swap_info_struct *si,
+			       unsigned long offset, unsigned int nr_entries)
+{
+	XA_STATE(xas, &si->lru_gen_shadow, offset);
+	unsigned long flags;
+	void *shadow;
+
+	if (!nr_entries)
+		return;
+
+	xa_lock_irqsave(&si->lru_gen_shadow, flags);
+	xas_for_each(&xas, shadow, offset + nr_entries - 1)
+		xas_store(&xas, NULL);
+	xa_unlock_irqrestore(&si->lru_gen_shadow, flags);
+}
+#endif
+
 /*
  * add_to_swap_cache resembles add_to_page_cache_locked on swapper_space,
  * but sets SwapCache flag and private instead of mapping and index.
@@ -413,7 +465,8 @@ struct page *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
 		err = add_to_swap_cache(new_page, entry, gfp_mask & GFP_KERNEL);
 		if (likely(!err)) {
 			/* Initiate read into locked page */
-			SetPageWorkingset(new_page);
+			if (!lru_gen_enabled())
+				SetPageWorkingset(new_page);
 			lru_cache_add_anon(new_page);
 			*new_page_allocated = true;
 			return new_page;
