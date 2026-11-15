@@ -4945,11 +4945,6 @@ static void shrink_many(struct pglist_data *pgdat, struct scan_control *sc)
 	BUILD_BUG();
 }
 
-static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
-{
-	BUILD_BUG();
-}
-
 #endif
 
 static void set_initial_priority(struct pglist_data *pgdat, struct scan_control *sc)
@@ -5717,10 +5712,12 @@ static void shrink_node_memcg(struct pglist_data *pgdat, struct mem_cgroup *memc
 	struct blk_plug plug;
 	bool scan_adjusted;
 
+#ifdef CONFIG_MEMCG
 	if (lru_gen_enabled()) {
 		lru_gen_shrink_lruvec(lruvec, sc);
 		return;
 	}
+#endif
 
 	get_scan_count(lruvec, memcg, sc, nr, lru_pages);
 
