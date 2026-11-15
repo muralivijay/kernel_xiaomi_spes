@@ -4956,7 +4956,7 @@ static void set_initial_priority(struct pglist_data *pgdat, struct scan_control 
 {
 	int priority;
 	unsigned long reclaimable;
-	struct lruvec *lruvec = mem_cgroup_lruvec(pgdat, root_mem_cgroup);
+	struct lruvec *lruvec = node_lruvec(pgdat);
 
 	if (sc->priority != DEF_PRIORITY || sc->nr_to_reclaim < MIN_LRU_BATCH)
 		return;
