@@ -3452,14 +3452,19 @@ restart:
 		total++;
 		walk->mm_stats[MM_LEAF_TOTAL]++;
 
+		if (!pte_young(ptent)) {
+			/* Cold PTEs cannot promote pages. Resolve PFNs only for stats. */
+			if (IS_ENABLED(CONFIG_LRU_GEN_STATS)) {
+				pfn = get_pte_pfn(ptent, args->vma, addr);
+				if (pfn != -1)
+					walk->mm_stats[MM_LEAF_OLD]++;
+			}
+			continue;
+		}
+
 		pfn = get_pte_pfn(ptent, args->vma, addr);
 		if (pfn == -1)
 			continue;
-
-		if (!pte_young(ptent)) {
-			walk->mm_stats[MM_LEAF_OLD]++;
-			continue;
-		}
 
 		page = get_pfn_page(pfn, memcg, pgdat, walk->can_swap);
 		if (!page)
