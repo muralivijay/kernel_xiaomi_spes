@@ -6047,12 +6047,42 @@ enum mem_cgroup_protection mem_cgroup_protected(struct mem_cgroup *root,
 
 out:
 	if (usage <= memcg->memory.emin)
-		return MEMCG_PROT_MIN;
-	else if (usage <= memcg->memory.elow)
-		return MEMCG_PROT_LOW;
-	else
-		return MEMCG_PROT_NONE;
+                return MEMCG_PROT_MIN;
+        else if (usage <= memcg->memory.elow)
+                return MEMCG_PROT_LOW;
+        else
+                return MEMCG_PROT_NONE;
 }
+
+#ifdef CONFIG_LRU_GEN
+/* Calculate parents before children for an isolated reclaim query. */
+void mem_cgroup_protection_path(struct mem_cgroup *root,
+			       struct mem_cgroup *memcg)
+{
+	struct cgroup *cg;
+	int level;
+
+	if (mem_cgroup_disabled())
+		return;
+
+	if (!root)
+		root = root_mem_cgroup;
+	if (memcg == root)
+		return;
+
+	cg = memcg->css.cgroup;
+	rcu_read_lock();
+	for (level = root->css.cgroup->level + 1; level <= cg->level; level++) {
+		struct cgroup *ancestor = cgroup_ancestor(cg, level);
+		struct cgroup_subsys_state *css;
+
+		css = cgroup_css(ancestor, &memory_cgrp_subsys);
+		if (css)
+			mem_cgroup_calculate_protection(root, mem_cgroup_from_css(css));
+	}
+	rcu_read_unlock();
+}
+#endif
 
 /**
  * mem_cgroup_try_charge - try charging a page
