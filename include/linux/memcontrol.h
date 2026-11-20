@@ -435,6 +435,11 @@ static inline bool mem_cgroup_disabled(void)
 	return !cgroup_subsys_enabled(memory_cgrp_subsys);
 }
 
+#ifdef CONFIG_LRU_GEN
+void mem_cgroup_protection_path(struct mem_cgroup *root,
+			       struct mem_cgroup *memcg);
+#endif
+
 enum mem_cgroup_protection mem_cgroup_protected(struct mem_cgroup *root,
 						struct mem_cgroup *memcg);
 
@@ -978,6 +983,13 @@ static inline void memcg_memory_event_mm(struct mm_struct *mm,
 					 enum memcg_memory_event event)
 {
 }
+
+#ifdef CONFIG_LRU_GEN
+static inline void mem_cgroup_protection_path(struct mem_cgroup *root,
+					     struct mem_cgroup *memcg)
+{
+}
+#endif
 
 static inline enum mem_cgroup_protection mem_cgroup_protected(
 	struct mem_cgroup *root, struct mem_cgroup *memcg)
