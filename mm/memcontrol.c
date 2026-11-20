@@ -6076,7 +6076,7 @@ void mem_cgroup_protection_path(struct mem_cgroup *root,
 		struct cgroup *ancestor = cgroup_ancestor(cg, level);
 		struct cgroup_subsys_state *css;
 
-		css = cgroup_css(ancestor, &memory_cgrp_subsys);
+		css = rcu_dereference(ancestor->subsys[memory_cgrp_id]);
 		if (css)
 			mem_cgroup_calculate_protection(root, mem_cgroup_from_css(css));
 	}
