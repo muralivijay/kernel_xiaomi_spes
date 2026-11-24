@@ -59,6 +59,13 @@ static inline int pudp_set_access_flags(struct vm_area_struct *vma,
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 #endif
 
+#ifndef pud_index
+static inline uintptr_t pud_index(uintptr_t addr)
+{
+    return (addr >> PUD_SHIFT) & (PTRS_PER_PUD - 1);
+}
+#endif
+
 #ifndef __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
 static inline int ptep_test_and_clear_young(struct vm_area_struct *vma,
 					    unsigned long address,
