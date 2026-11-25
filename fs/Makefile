@@ -15,6 +15,13 @@ obj-y :=	open.o read_write.o file_table.o super.o \
 		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o \
 		fs_types.o fs_context.o fs_parser.o
 
+obj-$(CONFIG_KSU_SUSFS) += susfs.o
+# susfs: kernel_read() changed signature in v4.14; some 4.9 backport the new one.
+# Detect by signature, not by version.
+ifeq ($(shell grep -q "ssize_t kernel_read" $(srctree)/fs/read_write.c $(srctree)/fs/exec.c 2>/dev/null; echo $$?),0)
+CFLAGS_susfs.o += -DSUSFS_KERNEL_READ_NEW
+endif
+
 ifeq ($(CONFIG_BLOCK),y)
 obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
 else
