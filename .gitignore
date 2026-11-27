@@ -137,8 +137,3 @@ kernel/configs/android-*.cfg
 
 # vendor device tree directories
 arch/arm64/boot/dts/vendor/
-
-#
-#Ignoring Android.bp link file
-#
-Android.bp
